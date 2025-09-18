@@ -30,5 +30,15 @@ export default defineMessages({
         id: 'gui.sharedMessages.loadFromComputerTitle',
         defaultMessage: 'Load from your computer',
         description: 'Title for uploading a project from your computer'
+    },
+    loadFromUrlTitle: {
+        id: 'gui.sharedMessages.loadFromUrlTitle',
+        defaultMessage: 'Load from URL',
+        description: 'Title for uploading a project from a URL'
+    },
+    loadFromUrlPrompt: {
+        id: 'gui.sharedMessages.loadFromUrlPrompt',
+        defaultMessage: 'Enter the URL of the project',
+        description: 'Prompt asking the user for a project URL to load'
     }
 });
