@@ -22,6 +22,11 @@ import {
     closeFileMenu
 } from '../reducers/menus';
 
+const UploadSources = {
+    FILE: 'file',
+    URL: 'url'
+};
+
 const messages = defineMessages({
     loadError: {
         id: 'gui.projectLoader.loadError',
@@ -47,11 +52,14 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                 'createFileObjects',
                 'getProjectTitleFromFilename',
                 'handleFinishedLoadingUpload',
+                'handleStartLoadingProjectUrl',
                 'handleStartSelectingFileUpload',
                 'handleChange',
                 'onload',
                 'removeFileObjects'
             ]);
+            this.uploadSource = null;
+            this.projectUrlToUpload = null;
         }
         componentDidUpdate (prevProps) {
             if (this.props.isLoadingUpload && !prevProps.isLoadingUpload) {
@@ -64,6 +72,38 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         // step 1: this is where the upload process begins
         handleStartSelectingFileUpload () {
             this.createFileObjects(); // go to step 2
+        }
+        handleStartLoadingProjectUrl (url) {
+            const {
+                intl,
+                isShowingWithoutId,
+                loadingState,
+                projectChanged,
+                userOwnsProject
+            } = this.props;
+            const trimmedUrl = typeof url === 'string' ? url.trim() : '';
+            if (!trimmedUrl) {
+                this.removeFileObjects();
+                this.props.closeFileMenu();
+                return;
+            }
+
+            let uploadAllowed = true;
+            if (userOwnsProject || (projectChanged && isShowingWithoutId)) {
+                uploadAllowed = confirm( // eslint-disable-line no-alert
+                    intl.formatMessage(sharedMessages.replaceProjectWarning)
+                );
+            }
+            if (uploadAllowed) {
+                this.removeFileObjects();
+                this.projectUrlToUpload = trimmedUrl;
+                this.uploadSource = UploadSources.URL;
+                this.fileToUpload = null;
+                this.props.requestProjectUpload(loadingState);
+            } else {
+                this.removeFileObjects();
+            }
+            this.props.closeFileMenu();
         }
         // step 2: create a FileReader and an <input> element, and issue a
         // pseudo-click to it. That will open the file chooser dialog.
@@ -97,6 +137,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             const thisFileInput = e.target;
             if (thisFileInput.files) { // Don't attempt to load if no file was selected
                 this.fileToUpload = thisFileInput.files[0];
+                this.projectUrlToUpload = null;
+                this.uploadSource = UploadSources.FILE;
 
                 // If user owns the project, or user has changed the project,
                 // we must confirm with the user that they really intend to
@@ -123,6 +165,45 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         // step 5: called from componentDidUpdate when project state shows
         // that project data has finished "uploading" into the browser
         handleFinishedLoadingUpload () {
+            if (this.uploadSource === UploadSources.URL) {
+                const projectUrl = this.projectUrlToUpload;
+                if (projectUrl) {
+                    this.props.onLoadingStarted();
+                    let loadingSuccess = false;
+                    const urlParts = projectUrl.split('/');
+                    const lastPart = urlParts[urlParts.length - 1];
+                    const urlFilename = lastPart ? lastPart.split(/[?#]/)[0] : '';
+                    return fetch(projectUrl)
+                        .then(response => {
+                            if (!response.ok) {
+                                const statusMessage = `${response.status} ${response.statusText}`;
+                                throw new Error(`Unable to fetch project from URL: ${statusMessage}`);
+                            }
+                            return response.arrayBuffer();
+                        })
+                        .then(arrayBuffer => this.props.vm.loadProject(arrayBuffer))
+                        .then(() => {
+                            if (urlFilename) {
+                                const uploadedProjectTitle = this.getProjectTitleFromFilename(urlFilename);
+                                if (uploadedProjectTitle) {
+                                    this.props.onSetProjectTitle(uploadedProjectTitle);
+                                }
+                            }
+                            loadingSuccess = true;
+                        })
+                        .catch(error => {
+                            log.warn(error);
+                            alert(this.props.intl.formatMessage(messages.loadError)); // eslint-disable-line no-alert
+                        })
+                        .then(() => {
+                            this.props.onLoadingFinished(this.props.loadingState, loadingSuccess);
+                            this.removeFileObjects();
+                        });
+                }
+                this.props.cancelFileUpload(this.props.loadingState);
+                this.removeFileObjects();
+                return;
+            }
             if (this.fileToUpload && this.fileReader) {
                 // begin to read data from the file. When finished,
                 // cues step 6 using the reader's onload callback
@@ -179,6 +260,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             this.inputElement = null;
             this.fileReader = null;
             this.fileToUpload = null;
+            this.projectUrlToUpload = null;
+            this.uploadSource = null;
         }
         render () {
             const {
@@ -201,6 +284,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                 <React.Fragment>
                     <WrappedComponent
                         onStartSelectingFileUpload={this.handleStartSelectingFileUpload}
+                        onStartLoadingProjectUrl={this.handleStartLoadingProjectUrl}
                         {...componentProps}
                     />
                 </React.Fragment>
