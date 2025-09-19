@@ -187,6 +187,7 @@ class MenuBar extends React.Component {
             'handleSetMode',
             'handleKeyPress',
             'handleRestoreOption',
+            'handleClickLoadFromUrl',
             'getSaveToComputerHandler',
             'restoreOptionMessage'
         ]);
@@ -223,6 +224,14 @@ class MenuBar extends React.Component {
     handleClickSaveAsCopy () {
         this.props.onClickSaveAsCopy();
         this.props.onRequestCloseFile();
+    }
+    handleClickLoadFromUrl () {
+        if (!this.props.onStartLoadingProjectUrl) {
+            return;
+        }
+        const promptMessage = this.props.intl.formatMessage(sharedMessages.loadFromUrlPrompt);
+        const projectUrl = prompt(promptMessage); // eslint-disable-line no-alert
+        this.props.onStartLoadingProjectUrl(projectUrl);
     }
     handleClickSeeCommunity (waitForUpdate) {
         if (this.props.shouldSaveBeforeTransition()) {
@@ -504,6 +513,11 @@ class MenuBar extends React.Component {
                                             onClick={this.props.onStartSelectingFileUpload}
                                         >
                                             {this.props.intl.formatMessage(sharedMessages.loadFromComputerTitle)}
+                                        </MenuItem>
+                                        <MenuItem
+                                            onClick={this.handleClickLoadFromUrl}
+                                        >
+                                            {this.props.intl.formatMessage(sharedMessages.loadFromUrlTitle)}
                                         </MenuItem>
                                         <SB3Downloader>{(className, downloadProjectCallback) => (
                                             <MenuItem
@@ -934,6 +948,7 @@ MenuBar.propTypes = {
     onSeeCommunity: PropTypes.func,
     onSetTimeTravelMode: PropTypes.func,
     onShare: PropTypes.func,
+    onStartLoadingProjectUrl: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
     onToggleLoginOpen: PropTypes.func,
     projectTitle: PropTypes.string,

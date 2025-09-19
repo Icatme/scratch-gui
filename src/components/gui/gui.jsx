@@ -115,6 +115,7 @@ const GUIComponent = props => {
         onSeeCommunity,
         onShare,
         onShowPrivacyPolicy,
+        onStartLoadingProjectUrl,
         onStartSelectingFileUpload,
         onTelemetryModalCancel,
         onTelemetryModalOptIn,
@@ -248,6 +249,7 @@ const GUIComponent = props => {
                     onProjectTelemetryEvent={onProjectTelemetryEvent}
                     onSeeCommunity={onSeeCommunity}
                     onShare={onShare}
+                    onStartLoadingProjectUrl={onStartLoadingProjectUrl}
                     onStartSelectingFileUpload={onStartSelectingFileUpload}
                     onToggleLoginOpen={onToggleLoginOpen}
                 />
@@ -431,6 +433,7 @@ GUIComponent.propTypes = {
     onSeeCommunity: PropTypes.func,
     onShare: PropTypes.func,
     onShowPrivacyPolicy: PropTypes.func,
+    onStartLoadingProjectUrl: PropTypes.func,
     onStartSelectingFileUpload: PropTypes.func,
     onTabSelect: PropTypes.func,
     onTelemetryModalCancel: PropTypes.func,
