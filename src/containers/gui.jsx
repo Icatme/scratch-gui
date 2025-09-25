@@ -202,13 +202,13 @@ const WrappedGui = compose(
     LocalizationHOC,
     ErrorBoundaryHOC('Top Level App'),
     FontLoaderHOC,
-    QueryParserHOC,
     ProjectFetcherHOC,
     TitledHOC,
     ProjectSaverHOC,
     vmListenerHOC,
     vmManagerHOC,
     SBFileUploaderHOC,
+    QueryParserHOC,
     cloudManagerHOC,
     systemPreferencesHOC
 )(ConnectedGUI);

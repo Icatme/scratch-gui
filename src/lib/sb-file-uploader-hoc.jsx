@@ -5,6 +5,7 @@ import {defineMessages, intlShape, injectIntl} from 'react-intl';
 import {connect} from 'react-redux';
 import log from '../lib/log';
 import sharedMessages from './shared-messages';
+import {ProjectUrlDebugChain, logProjectUrlDebug} from './project-url-debug';
 
 import {
     LoadingStates,
@@ -60,6 +61,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             ]);
             this.uploadSource = null;
             this.projectUrlToUpload = null;
+            this.projectUrlDebugContext = null;
         }
         componentDidUpdate (prevProps) {
             if (this.props.isLoadingUpload && !prevProps.isLoadingUpload) {
@@ -73,7 +75,7 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         handleStartSelectingFileUpload () {
             this.createFileObjects(); // go to step 2
         }
-        handleStartLoadingProjectUrl (url) {
+        handleStartLoadingProjectUrl (url, debugContext = {}) {
             const {
                 intl,
                 isShowingWithoutId,
@@ -81,8 +83,17 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                 projectChanged,
                 userOwnsProject
             } = this.props;
+            const debugChain = (debugContext && debugContext.chain) || ProjectUrlDebugChain.OTHER;
+            this.projectUrlDebugContext = {chain: debugChain};
+            logProjectUrlDebug('sb-file-uploader-hoc', 'handleStartLoadingProjectUrl invoked', {
+                rawUrl: url,
+                projectChanged,
+                isShowingWithoutId,
+                userOwnsProject
+            }, debugChain);
             const trimmedUrl = typeof url === 'string' ? url.trim() : '';
             if (!trimmedUrl) {
+                logProjectUrlDebug('sb-file-uploader-hoc', 'Aborting URL load because trimmed URL is empty', {rawUrl: url}, debugChain);
                 this.removeFileObjects();
                 this.props.closeFileMenu();
                 return;
@@ -93,14 +104,19 @@ const SBFileUploaderHOC = function (WrappedComponent) {
                 uploadAllowed = confirm( // eslint-disable-line no-alert
                     intl.formatMessage(sharedMessages.replaceProjectWarning)
                 );
+                logProjectUrlDebug('sb-file-uploader-hoc', 'Replace project confirmation result', {trimmedUrl, uploadAllowed}, debugChain);
+            } else {
+                logProjectUrlDebug('sb-file-uploader-hoc', 'No confirmation required for URL load', {trimmedUrl}, debugChain);
             }
             if (uploadAllowed) {
-                this.removeFileObjects();
+                this.removeFileObjects({preserveDebugContext: true});
                 this.projectUrlToUpload = trimmedUrl;
                 this.uploadSource = UploadSources.URL;
                 this.fileToUpload = null;
+                logProjectUrlDebug('sb-file-uploader-hoc', 'Dispatching requestProjectUpload for URL', {trimmedUrl, loadingState}, debugChain);
                 this.props.requestProjectUpload(loadingState);
             } else {
+                logProjectUrlDebug('sb-file-uploader-hoc', 'User cancelled URL load', {trimmedUrl}, debugChain);
                 this.removeFileObjects();
             }
             this.props.closeFileMenu();
@@ -167,39 +183,68 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         handleFinishedLoadingUpload () {
             if (this.uploadSource === UploadSources.URL) {
                 const projectUrl = this.projectUrlToUpload;
+                const debugChain = (this.projectUrlDebugContext && this.projectUrlDebugContext.chain) || ProjectUrlDebugChain.OTHER;
+                logProjectUrlDebug('sb-file-uploader-hoc', 'handleFinishedLoadingUpload triggered for URL source', {projectUrl}, debugChain);
                 if (projectUrl) {
                     this.props.onLoadingStarted();
                     let loadingSuccess = false;
                     const urlParts = projectUrl.split('/');
                     const lastPart = urlParts[urlParts.length - 1];
                     const urlFilename = lastPart ? lastPart.split(/[?#]/)[0] : '';
+                    logProjectUrlDebug('sb-file-uploader-hoc', 'Fetching project URL', {projectUrl, urlFilename}, debugChain);
                     return fetch(projectUrl)
                         .then(response => {
+                            logProjectUrlDebug('sb-file-uploader-hoc', 'Fetch response received', {
+                                projectUrl,
+                                status: response.status,
+                                statusText: response.statusText
+                            }, debugChain);
                             if (!response.ok) {
                                 const statusMessage = `${response.status} ${response.statusText}`;
                                 throw new Error(`Unable to fetch project from URL: ${statusMessage}`);
                             }
                             return response.arrayBuffer();
                         })
-                        .then(arrayBuffer => this.props.vm.loadProject(arrayBuffer))
+                        .then(arrayBuffer => {
+                            logProjectUrlDebug('sb-file-uploader-hoc', 'Passing arrayBuffer to vm.loadProject', {
+                                projectUrl,
+                                byteLength: arrayBuffer.byteLength
+                            }, debugChain);
+                            return this.props.vm.loadProject(arrayBuffer);
+                        })
                         .then(() => {
                             if (urlFilename) {
                                 const uploadedProjectTitle = this.getProjectTitleFromFilename(urlFilename);
                                 if (uploadedProjectTitle) {
+                                    logProjectUrlDebug('sb-file-uploader-hoc', 'Setting project title from URL filename', {uploadedProjectTitle}, debugChain);
                                     this.props.onSetProjectTitle(uploadedProjectTitle);
                                 }
                             }
                             loadingSuccess = true;
+                            logProjectUrlDebug('sb-file-uploader-hoc', 'vm.loadProject resolved successfully', {projectUrl}, debugChain);
                         })
                         .catch(error => {
                             log.warn(error);
+                            logProjectUrlDebug('sb-file-uploader-hoc', 'Error during URL project load', {
+                                projectUrl,
+                                message: error && error.message
+                            }, debugChain);
                             alert(this.props.intl.formatMessage(messages.loadError)); // eslint-disable-line no-alert
                         })
                         .then(() => {
+                            logProjectUrlDebug('sb-file-uploader-hoc', 'Finishing URL project load', {
+                                projectUrl,
+                                loadingSuccess,
+                                loadingState: this.props.loadingState
+                            }, debugChain);
                             this.props.onLoadingFinished(this.props.loadingState, loadingSuccess);
                             this.removeFileObjects();
                         });
                 }
+                logProjectUrlDebug('sb-file-uploader-hoc', 'URL load aborted after requestProjectUpload', {
+                    projectUrl,
+                    loadingState: this.props.loadingState
+                }, debugChain);
                 this.props.cancelFileUpload(this.props.loadingState);
                 this.removeFileObjects();
                 return;
@@ -252,7 +297,8 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         }
         // step 7: remove the <input> element from the DOM and clear reader and
         // fileToUpload reference, so those objects can be garbage collected
-        removeFileObjects () {
+        removeFileObjects (options = {}) {
+            const {preserveDebugContext = false} = options;
             if (this.inputElement) {
                 this.inputElement.value = null;
                 document.body.removeChild(this.inputElement);
@@ -262,6 +308,9 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             this.fileToUpload = null;
             this.projectUrlToUpload = null;
             this.uploadSource = null;
+            if (!preserveDebugContext) {
+                this.projectUrlDebugContext = null;
+            }
         }
         render () {
             const {

@@ -6,6 +6,7 @@ import PropTypes from 'prop-types';
 import bindAll from 'lodash.bindall';
 import bowser from 'bowser';
 import React from 'react';
+import {ProjectUrlDebugChain, logProjectUrlDebug} from '../../lib/project-url-debug';
 
 import VM from 'scratch-vm';
 
@@ -227,11 +228,14 @@ class MenuBar extends React.Component {
     }
     handleClickLoadFromUrl () {
         if (!this.props.onStartLoadingProjectUrl) {
+            logProjectUrlDebug('menu-bar', 'Load from URL aborted: handler missing', {}, ProjectUrlDebugChain.MENU);
             return;
         }
         const promptMessage = this.props.intl.formatMessage(sharedMessages.loadFromUrlPrompt);
+        logProjectUrlDebug('menu-bar', 'Displaying load-from-url prompt', {promptMessage}, ProjectUrlDebugChain.MENU);
         const projectUrl = prompt(promptMessage); // eslint-disable-line no-alert
-        this.props.onStartLoadingProjectUrl(projectUrl);
+        logProjectUrlDebug('menu-bar', 'Prompt returned project URL', {projectUrl}, ProjectUrlDebugChain.MENU);
+        this.props.onStartLoadingProjectUrl(projectUrl, {chain: ProjectUrlDebugChain.MENU});
     }
     handleClickSeeCommunity (waitForUpdate) {
         if (this.props.shouldSaveBeforeTransition()) {
