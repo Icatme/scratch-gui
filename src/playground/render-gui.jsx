@@ -31,6 +31,20 @@ const handleTelemetryModalOptOut = () => {
 export default appTarget => {
     GUI.setAppElement(appTarget);
 
+    // Allow overriding hosts via query params for deployment flexibility
+    // Usage: /scratch-gui?asset_host=...&project_host=...&project_token=...
+    let assetHostOverride;
+    let projectHostOverride;
+    let projectTokenOverride;
+    try {
+        const url = new URL(window.location.href);
+        assetHostOverride = url.searchParams.get('asset_host') || undefined;
+        projectHostOverride = url.searchParams.get('project_host') || undefined;
+        projectTokenOverride = url.searchParams.get('project_token') || undefined;
+    } catch (e) {
+        // ignore URL parsing errors and use defaults
+    }
+
     // note that redux's 'compose' function is just being used as a general utility to make
     // the hierarchy of HOC constructor calls clearer here; it has nothing to do with redux's
     // ability to compose reducers.
@@ -69,6 +83,9 @@ export default appTarget => {
                 isScratchDesktop
                 showTelemetryModal
                 canSave={false}
+                assetHost={assetHostOverride}
+                projectHost={projectHostOverride}
+                projectToken={projectTokenOverride}
                 onTelemetryModalCancel={handleTelemetryModalCancel}
                 onTelemetryModalOptIn={handleTelemetryModalOptIn}
                 onTelemetryModalOptOut={handleTelemetryModalOptOut}
@@ -79,6 +96,9 @@ export default appTarget => {
                 showComingSoon
                 backpackHost={backpackHost}
                 canSave={false}
+                assetHost={assetHostOverride}
+                projectHost={projectHostOverride}
+                projectToken={projectTokenOverride}
                 onClickLogo={onClickLogo}
             />,
         appTarget);
